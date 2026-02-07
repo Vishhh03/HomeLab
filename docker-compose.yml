@@ -87,7 +87,7 @@ services:
 
   # 1. Your Custom Go Backend
   api:
-    build: .
+    build: ./fitness-app
     container_name: fitness_api
     environment:
       - DB_HOST=db
