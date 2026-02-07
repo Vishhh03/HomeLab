@@ -182,7 +182,7 @@ services:
     environment:
       - HOMEPAGE_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,dashboard.${DOMAINNAME},${DOMAINNAME}
     volumes:
-      - ./config:/app/config
+      - ./config/homepage:/app/config
     networks:
       - proxy
     labels:
