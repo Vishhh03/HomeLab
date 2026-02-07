@@ -1,0 +1,54 @@
+###############################################################
+#                   Authelia Configuration                    #
+###############################################################
+
+theme: dark
+
+server:
+  host: 0.0.0.0
+  port: 9091
+
+log:
+  level: debug
+
+totp:
+  issuer: authelia.com
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+
+access_control:
+  default_policy: deny
+  rules:
+    - domain: "*.home.local"
+      policy: one_factor
+
+session:
+  name: authelia_session
+  domain: home.local
+  secret: unsecure_session_secret_change_me
+  expiration: 3600 # 1 hour
+  inactivity: 300  # 5 minutes
+  remember_me_duration: 1M
+  redis:
+    host: authelia_redis
+    port: 6379
+
+regulation:
+  max_retries: 3
+  find_time: 120
+  ban_time: 300
+
+storage:
+  encryption_key: a1a91824daef9ffe09ac88cc63c774a11ca12b9a59a7ffd1f24826bb09f726f9
+  local:
+    path: /config/db.sqlite3
+
+identity_validation:
+  reset_password:
+    jwt_secret: a1a91824daef9ffe09ac88cc63c774a11ca12b9a59a7ffd1f24826bb09f726f9
+
+notifier:
+  filesystem:
+    filename: /config/notification.txt
