@@ -1,0 +1,203 @@
+services:
+  # --- SECURITY & NETWORKING ---
+  
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8090:8080" # Dashboard (Insecure)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAINNAME}`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      # - "traefik.http.routers.dashboard.middlewares=authelia@docker"
+
+  authelia:
+    image: authelia/authelia
+    container_name: authelia
+    volumes:
+      - ./config/authelia:/config
+    networks:
+      - proxy
+    environment:
+      - TZ=${TZ}
+    depends_on:
+      - authelia_redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.${DOMAINNAME}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.${DOMAINNAME}/"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+
+  authelia_redis:
+    image: redis:alpine
+    container_name: authelia_redis
+    networks:
+      - proxy
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    network_mode: service:traefik
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+    volumes:
+      - tailscale_data:/var/lib/tailscale
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "5354:53/tcp"
+      - "5354:53/udp"
+    environment:
+      TZ: '${TZ}'
+      WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
+    volumes:
+      - './etc-pihole:/etc/pihole'
+      - './etc-dnsmasq.d:/etc/dnsmasq.d'
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pihole.rule=Host(`pihole.${DOMAINNAME}`)"
+      - "traefik.http.routers.pihole.entrypoints=websecure"
+      - "traefik.http.routers.pihole.tls=true"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
+      - "traefik.http.routers.pihole.middlewares=authelia@docker"
+    restart: unless-stopped
+
+  # --- CORE SERVICES ---
+
+  # 1. Your Custom Go Backend
+  api:
+    build: .
+    container_name: fitness_api
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASS=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.${DOMAINNAME}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+      # - "traefik.http.routers.api.middlewares=authelia@docker"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 2. The Database (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: fitness_db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vish_admin -d fitness_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. The Automation Engine (n8n)
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: fitness_automation
+    environment:
+      - N8N_HOST=n8n.${DOMAINNAME}
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://n8n.${DOMAINNAME}/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAINNAME}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls=true"
+      # - "traefik.http.routers.n8n.middlewares=authelia@docker"
+
+  # 4. The Dashboard (Grafana)
+  grafana:
+    image: grafana/grafana-oss
+    container_name: fitness_viz
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAINNAME}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      # - "traefik.http.routers.grafana.middlewares=authelia@docker"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: fitness_db_admin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    depends_on:
+      - db
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.${DOMAINNAME}`)"
+      - "traefik.http.routers.pgadmin.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin.tls=true"
+      # - "traefik.http.routers.pgadmin.middlewares=authelia@docker"
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: fitness_hub
+    environment:
+      - HOMEPAGE_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,dashboard.${DOMAINNAME},${DOMAINNAME}
+    volumes:
+      - ./config:/app/config
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`dashboard.${DOMAINNAME}`) || Host(`${DOMAINNAME}`) || Host(`localhost`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls=true"
+      # No auth for homepage, it's the landing page
+
+volumes:
+  postgres_data:
+  n8n_data:
+  grafana_data:
+  tailscale_data:
+
+networks:
+  proxy:
+    external: true

@@ -1,0 +1,57 @@
+- Core Infrastructure:
+    - Homepage:
+        icon: homepage.png
+        href: http://dashboard.home.local
+        description: This Dashboard
+    - Fitness App:
+        icon: weights.png
+        href: http://api.home.local
+        description: Go + HTMX Fitness Tracker
+        widget:
+          type: customapi
+          url: http://api:8081/health
+          refreshInterval: 10000
+          mappings:
+            - field: status
+              label: Status
+              format: text
+
+- Data & Analytics:
+    - Database Admin:
+        icon: postgresql.png
+        href: http://pgadmin.home.local
+        description: pgAdmin DB Management
+    - Visualizations:
+        icon: grafana.png
+        href: http://grafana.home.local
+        description: Grafana Analytics
+
+- Automation & Logic:
+    - Automation:
+        icon: n8n.png
+        href: http://n8n.home.local
+        description: n8n Workflow Engine
+
+- Media & Memories:
+    - Immich:
+        icon: immich.png
+        href: http://immich.home.local
+        description: High-performance photo backup
+        widget:
+          type: immich
+          url: http://immich-server:2283
+          key: YOUR_IMMICH_API_KEY # User will need to generate this
+
+- Network & Security:
+    - Pi-hole:
+        icon: pihole.png
+        href: http://pihole.home.local/admin
+        description: Network-wide Ad Blocking
+    - Traefik:
+        icon: traefik.png
+        href: http://traefik.home.local
+        description: Reverse Proxy & Load Balancer
+    - Authelia:
+        icon: authelia.png
+        href: https://auth.home.local
+        description: Single Sign-On

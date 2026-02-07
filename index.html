@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>💪 Fitness Lab</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <body>
+        <div class="min-h-screen bg-slate-950 text-slate-100 pb-20">
+            <!-- Floating Header -->
+            <header class="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
+                <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
+                    <h1
+                        class="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+                        FITNESS LAB
+                    </h1>
+                    <div id="rest-timer"
+                        class="hidden bg-slate-800 px-3 py-1 rounded-full text-xs font-mono text-blue-400 border border-slate-700 animate-pulse">
+                        Rest: <span id="timer-display">00:00</span>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto p-4 space-y-6 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start">
+                <!-- Left Column: Logging Card -->
+                <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24">
+                    <section
+                        class="bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-800 relative overflow-hidden group">
+                        <div
+                            class="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none">
+                        </div>
+
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Log Set</h2>
+
+                        <form hx-post="/api/v1/workout" hx-target="#workout-list" hx-swap="afterbegin"
+                            hx-on::after-request="startRestTimer()" class="space-y-4">
+                            <!-- Exercise & Target -->
+                            <div>
+                                <input type="text" name="exercise" hx-get="/api/v1/target"
+                                    hx-trigger="keyup changed delay:500ms" hx-target="#target-display"
+                                    placeholder="Exercise Name"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-lg font-bold focus:ring-2 focus:ring-blue-600 outline-none transition placeholder-slate-600">
+                                <div id="target-display" class="mt-2 text-xs text-right text-emerald-400 font-mono h-4">
+                                </div>
+                            </div>
+
+                            <!-- Main Stats Grid -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                                    <label class="block text-xs text-slate-500 mb-1">REPS</label>
+                                    <input type="number" name="reps" placeholder="0"
+                                        class="w-full bg-transparent text-2xl font-black text-center outline-none">
+                                </div>
+                                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                                    <label class="block text-xs text-slate-500 mb-1">WEIGHT (KG)</label>
+                                    <input type="number" step="0.5" name="weight" placeholder="0.0"
+                                        class="w-full bg-transparent text-2xl font-black text-center outline-none">
+                                </div>
+                            </div>
+
+                            <!-- Advanced HIT Metrics -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                                    <label class="block text-xs text-slate-500 mb-1">RPE (1-10)</label>
+                                    <input type="number" max="10" name="rpe" placeholder="8"
+                                        class="w-full bg-transparent text-xl font-bold text-center outline-none text-yellow-500">
+                                </div>
+                                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                                    <label class="block text-xs text-slate-500 mb-1">TEMPO</label>
+                                    <input type="text" name="tempo" placeholder="3-0-1"
+                                        class="w-full bg-transparent text-sm font-bold text-center outline-none uppercase tracking-widest text-slate-400">
+                                </div>
+                            </div>
+
+                            <!-- Failure Toggle -->
+                            <div
+                                class="flex items-center justify-between bg-slate-950 p-4 rounded-2xl border border-red-900/30">
+                                <span class="text-sm font-bold text-red-400">FAILURE Reached?</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="is_failure" value="true" class="sr-only peer">
+                                    <div
+                                        class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600">
+                                    </div>
+                                </label>
+                            </div>
+
+                            <button type="submit"
+                                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20 active:scale-95 text-lg tracking-wide uppercase">
+                                LOG SET
+                            </button>
+                        </form>
+                    </section>
+                </div>
+
+                <!-- Right Column: Recent Activity & Metrics -->
+                <div class="lg:col-span-7 xl:col-span-8 space-y-6">
+                    <!-- Metrics Toggle Area -->
+                    <div
+                        class="flex justify-between items-center bg-slate-900/50 p-4 rounded-2xl border border-slate-800 backdrop-blur-sm">
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Dashboard</h2>
+                        <button onclick="toggleMetrics()"
+                            class="bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-blue-600/30 transition-all border border-blue-500/30">
+                            View Analytics
+                        </button>
+                    </div>
+
+                    <div id="workout-list" hx-get="/api/v1/workouts" hx-trigger="load"
+                        class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- HTMX Loads Here -->
+                    </div>
+                </div>
+
+                <!-- Metrics Modal (Overlay) -->
+                <section id="metrics-panel"
+                    class="hidden fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-xl p-6 overflow-y-auto flex justify-center items-center">
+                    <div class="max-w-4xl w-full">
+                        <div class="flex justify-between items-center mb-8">
+                            <h2 class="text-2xl font-black italic tracking-tighter text-white">V-TAPER LAB</h2>
+                            <button onclick="toggleMetrics()"
+                                class="text-slate-400 hover:text-white bg-slate-800 px-4 py-2 rounded-lg">Close</button>
+                        </div>
+
+                        <!-- Log Metrics Form -->
+                        <form hx-post="/api/v1/metrics" hx-swap="none" hx-on::after-request="loadCharts()"
+                            class="mb-8 p-6 bg-slate-900 rounded-3xl border border-slate-800">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Update
+                                Measurements (cm)</h3>
+                            <div class="grid grid-cols-3 gap-4">
+                                <input type="number" step="0.1" name="shoulder" placeholder="Shoulder"
+                                    class="bg-slate-950 p-4 rounded-xl text-center font-bold outline-none border border-slate-700 text-lg">
+                                <input type="number" step="0.1" name="chest" placeholder="Chest"
+                                    class="bg-slate-950 p-4 rounded-xl text-center font-bold outline-none border border-slate-700 text-lg">
+                                <input type="number" step="0.1" name="waist" placeholder="Waist"
+                                    class="bg-slate-950 p-4 rounded-xl text-center font-bold outline-none border border-slate-700 text-lg">
+                            </div>
+                            <button type="submit"
+                                class="mt-4 w-full bg-slate-800 text-slate-300 text-sm font-bold py-3 rounded-xl hover:bg-slate-700 transition-all">Log
+                                Measurements</button>
+                        </form>
+
+                        <!-- Charts -->
+                        <div class="space-y-4">
+                            <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                                <canvas id="ratioChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+        </main>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            function toggleMetrics() {
+                const panel = document.getElementById('metrics-panel');
+                panel.classList.toggle('hidden');
+                if (!panel.classList.contains('hidden')) {
+                    loadCharts();
+                }
+            }
+
+            async function loadCharts() {
+                const response = await fetch('/api/v1/metrics');
+                const data = await response.json();
+
+                const labels = data.map(d => new Date(d.timestamp).toLocaleDateString());
+                const ratios = data.map(d => (d.shoulder_circumference / d.waist_circumference).toFixed(2));
+
+                const ctx = document.getElementById('ratioChart');
+
+                // Destroy existing chart if it exists
+                if (window.myChart) window.myChart.destroy();
+
+                window.myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'V-Taper Ratio (Shoulder/Waist)',
+                            data: ratios,
+                            borderColor: '#60a5fa', // blue-400
+                            backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: { color: '#1e293b' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            }
+
+            function startRestTimer() {
+                const display = document.getElementById('timer-display');
+                const container = document.getElementById('rest-timer');
+                let timeLeft = 90; // 90 seconds rest
+
+                container.classList.remove('hidden');
+
+                const timer = setInterval(() => {
+                    const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                    const s = (timeLeft % 60).toString().padStart(2, '0');
+                    display.textContent = `${m}:${s}`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        container.classList.add('hidden');
+                        alert("Rest Complete! Get back to it.");
+                    }
+                    timeLeft -= 1;
+                }, 1000);
+            }
+        </script>
+    </body>
+
+</html>
