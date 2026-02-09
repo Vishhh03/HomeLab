@@ -24,7 +24,7 @@ certificatesResolvers:
   # Using a self-signed resolver or empty for local for now, can be expanded to Let's Encrypt
   myresolver:
     acme:
-      email: your-email@example.com
+      email: vishshaji03@gmail.com
       storage: acme.json
       httpChallenge:
         entryPoint: web
